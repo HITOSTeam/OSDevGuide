@@ -17,10 +17,13 @@
 
 ## todoList
 
-1. 添加 long arch 支持
+1. 添加 long arch 支持,多核,文档 //
+   2026.1.31 完成arch licbench
 2. 完成ltp
 3. bug
 4. 代码清理
+5. 项目开发流程
+6. 调度策略
 
 ## 各部分说明
 
@@ -29,7 +32,8 @@
 - [多核设计](./parts/multi_core.md)
 - [文件系统](./parts/filesystem.md)
 - [内存空间设计](./parts/memory_space.md)
-- []
+- [如何支持多架构?](./parts/multi_arch.md)
+- [优化](./parts/optimize.md)
 
 一些开发文档,记录一些开发细节
 
