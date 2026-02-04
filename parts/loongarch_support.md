@@ -188,17 +188,21 @@ Files:
 ## cyclictest 失败定位：LoongArch musl `sched_getparam` ABI/实现异常
 
 现象：
+
 - `cyclictest` 报错：`unable to get scheduler parameters`（`rt-utils.c: check_privs()` 中的 `sched_getparam(0, &old_param)` 失败）。
 - syscall 追踪显示 **只有** `sched_getaffinity(123)`，**没有** `sched_getparam(121)` / `sched_getscheduler(120)` / `sched_setscheduler(119)`。
 
 对比验证（排除内核问题）：
+
 - `busybox chrt -p 1` 能正确打印 `policy/priority`，说明内核 `sched_getparam/getscheduler` syscall 正常。
 
 二进制证据（musl libc）：
+
 - libc 路径：`loongarch_img_info/mnt/musl/lib/libc.so`
 - 函数机器码对比（每条 4 字节指令）：
   - `sched_getaffinity`（正常 syscall stub 形式）：
     - `02ffc063 29c02061 0281ec0b 002b0000 ...`
+
   - `getpid`（正常 syscall stub 形式）：
     - `0282b00b 002b0000 00408084 4c000020`
   - `sched_getparam/sched_getscheduler/sched_setparam/sched_setscheduler`：
@@ -206,5 +210,32 @@ Files:
     - 明显 **不符合** 正常 syscall stub 编码模式
 
 结论：
+
 - `cyclictest` 失败不是 testsuits 缺失，也不是内核 syscall 缺失，
   而是 **LoongArch musl 的 `sched_getparam` 家族函数在用户态未正确发起 syscall**（ABI/实现问题）。
+
+## LTP（riscv64）acct/工具相关修复记录
+
+为解决 LTP `acct02`/`abort01`/`access01` 等问题与工具缺失做了以下改动：
+
+- 增加 `/proc/config.gz` 伪文件：提供最小 gzip 配置内容（`CONFIG_BSD_PROCESS_ACCT=y`、`CONFIG_BSD_PROCESS_ACCT_V3 is not set`），并加入 `/proc` 目录条目。
+  - `os/src/fs/procfs.rs`
+  - `os/src/fs/pseudo.rs`
+- 修复伪文件 `st_size=0` 导致 `zcat /proc/config.gz` 阻塞：`fstat/newfstatat` 对 `PseudoFile::Static` 返回实际长度。
+  - `os/src/syscall/filesystem.rs`
+- 实现 `acct(2)` + 退出写账：`syscall_acct` 设置输出文件，进程退出时写入 `struct acct` 记录到文件末尾。
+  - `os/src/syscall/filesystem.rs`
+  - `os/src/task/processor.rs`
+- SA_RESTART + wait4 EINTR 处理：支持被信号中断后可重启的 syscall，避免 `abort01` 触发的 `waitpid` EINTR 直接失败。
+  - `os/src/syscall/process.rs`
+  - `os/src/task/task_block.rs`
+- busybox 兜底收紧：新增 applet allowlist（默认只允许 `zcat`），仅允许白名单命令走 busybox fallback，修复 `access01` 误判。
+  - `os/src/syscall/mod.rs`
+  - `os/src/syscall/process.rs`
+  - `os/src/syscall/filesystem.rs`
+- 默认 `PATH` 增补 LTP 目录：加入 `/musl/ltp/testcases/bin` 与 `/glibc/ltp/testcases/bin`，确保 `acct02_helper` 能被 `tst_get_path()` 解析到。
+  - `os/src/syscall/process.rs`
+
+镜像/工具层面（不涉及源码）：
+
+- 在基础镜像中更新静态 busybox，并单独放置真实 `zcat`（来自 busybox applet），保证 `zcat` 可用且不依赖 shell fallback。
