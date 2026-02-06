@@ -239,3 +239,23 @@ Files:
 镜像/工具层面（不涉及源码）：
 
 - 在基础镜像中更新静态 busybox，并单独放置真实 `zcat`（来自 busybox applet），保证 `zcat` 可用且不依赖 shell fallback。
+
+## LTP（riscv64）waitpid/信号/进程组修复记录
+
+为解决 `waitpid04` 期望 errno 以及 `waitpid_common` 的 job-control 测试（`waitpid06~13`）相关问题，新增/修复了：
+
+- `wait4` flags 校验：只允许 `WNOHANG|WUNTRACED|WCONTINUED`，非法 flags 返回 `EINVAL`；对 `pid==INT_MIN` 返回 `ESRCH`（与 `waitpid04` 预期一致）。
+  - `os/src/syscall/process.rs`
+- 进程组语义：新增 `pgid` 字段，子进程继承父进程 pgid；支持 `setpgid/getpgid`，`pid==0` 与 `pid<0` 的 waitpid 进程组匹配。
+  - `os/src/task/process_block.rs`
+  - `os/src/syscall/misc.rs`
+  - `os/src/syscall/mod.rs`
+- 停止/继续（job-control）信号处理：`SIGSTOP/SIGTSTP/SIGTTIN/SIGTTOU` 默认动作为停止，`SIGCONT` 默认继续；停止/继续时唤醒父进程 waiters，并让 `wait4` 产生 `WIFSTOPPED/WIFCONTINUED` 状态。
+  - `os/src/syscall/signal.rs`
+  - `os/src/syscall/process.rs`
+- /proc 状态同步：`/proc/<pid>/stat` 与 `/proc/<pid>/status` 输出 `pgrp` 与 `T (stopped)` 状态。
+  - `os/src/fs/procfs.rs`
+- 退出码编码修正：`exit/exit_group` 按 8-bit 规范截断，避免 `exit(-1)` 被误当作 signal 退出（导致 waitpid 测试错误）。
+  - `os/src/syscall/flow.rs`
+- futex 共享 key 修复：共享 futex 以 `(0,uaddr)` 作为 key 入队，避免 checkpoint futex 超时（`waitpid_common` 依赖）。
+  - `os/src/syscall/futex.rs`
