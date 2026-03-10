@@ -91,6 +91,8 @@
 - poll/epoll 语义治理：此前 `ppoll/pselect/epoll` 分散在 syscall 层各自计算 readiness，缺少统一的 Linux poll mask 语义，`epoll_pwait2(441)` 也未接入。  
   已将 `poll_mask()/supports_poll()` 下沉到 `File` 抽象，补齐 pipe/socket/FIFO/pidfd/userfaultfd 的 `POLLHUP/POLLERR/POLLRDHUP` 可见性；`ppoll` 现在对 `sigmask` 正确忽略被屏蔽信号，`epoll` 接入 `epoll_pwait2` 并统一复用等待/信号掩码逻辑。  
   结果：`epoll_ctl01-05`、`epoll_wait01-07`、`epoll_pwait01-05` 已在 musl+glibc 聚焦回归中稳定通过；当前剩余长期缺口不是接口语义，而是缺少通用 wait-queue / event registration，`epoll_wait` 无限等待路径仍依赖短睡眠轮询作为过渡实现。
+- readiness 回归收口：`select01-04`、`poll01-02`、`ppoll01`、`pselect01-03` + `_64`、`epoll_create01-02`、`epoll_create1_01-02`、`epoll-ltp` 已在 musl+glibc 聚焦回归中稳定通过。  
+  其中 `__NR_select`、`__NR__newselect`、独立 `pselect6_time64`、`__NR_epoll_create` 在 riscv64 上属于架构级不存在接口，LTP 对这些变体给出 `TCONF`，与 Linux/riscv64 预期一致，不视为内核语义缺口。
 - 后续治理项：继续清点仍使用 `translated_str()` 读取路径参数的 syscall，统一迁移到可返回 errno 的安全读取 helper，减少“异常退出替代 errno”的风险。  
   fd-table 共享语义已覆盖 `close_range01` 主路径，下一步可继续把当前“owner+sharer 重绑定”模型演进为独立 files-struct 引用计数对象，进一步贴近 Linux 生命周期语义。
 
