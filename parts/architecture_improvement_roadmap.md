@@ -90,7 +90,8 @@
   本轮按“相关回归优先”仅针对该批次执行回归验证，musl+glibc 路径均为 `FAIL LTP CASE ... : 0`，用于在保证语义稳定的同时提高吞吐。
 - poll/epoll 语义治理：此前 `ppoll/pselect/epoll` 分散在 syscall 层各自计算 readiness，缺少统一的 Linux poll mask 语义，`epoll_pwait2(441)` 也未接入。  
   已将 `poll_mask()/supports_poll()` 下沉到 `File` 抽象，补齐 pipe/socket/FIFO/pidfd/userfaultfd 的 `POLLHUP/POLLERR/POLLRDHUP` 可见性；`ppoll` 现在对 `sigmask` 正确忽略被屏蔽信号，`epoll` 接入 `epoll_pwait2` 并统一复用等待/信号掩码逻辑。  
-  结果：`epoll_ctl01-05`、`epoll_wait01-07`、`epoll_pwait01-05` 已在 musl+glibc 聚焦回归中稳定通过；当前剩余长期缺口不是接口语义，而是缺少通用 wait-queue / event registration，`epoll_wait` 无限等待路径仍依赖短睡眠轮询作为过渡实现。
+  结果：`epoll_ctl01-05`、`epoll_wait01-07`、`epoll_pwait01-05` 已在 musl+glibc 聚焦回归中稳定通过；并且 `epoll_wait` 已为 pipe、FIFO、socketpair、Unix socket、netlink、loopback 网络 socket 接入真实 waiter 注册和事件唤醒，避免无限等待路径继续只靠短睡眠轮询。  
+  当前剩余长期缺口是缺少覆盖全部 `File` 类型的通用 wait-queue / event registration，尤其是 pidfd / userfaultfd / 嵌套 epoll 等对象仍需要逐步纳入统一事件驱动框架；在这些对象补齐前，`epoll_wait` 仍对 mixed-support 场景保留短睡眠轮询兜底。
 - readiness 回归收口：`select01-04`、`poll01-02`、`ppoll01`、`pselect01-03` + `_64`、`epoll_create01-02`、`epoll_create1_01-02`、`epoll-ltp` 已在 musl+glibc 聚焦回归中稳定通过。  
   其中 `__NR_select`、`__NR__newselect`、独立 `pselect6_time64`、`__NR_epoll_create` 在 riscv64 上属于架构级不存在接口，LTP 对这些变体给出 `TCONF`，与 Linux/riscv64 预期一致，不视为内核语义缺口。
 - 后续治理项：继续清点仍使用 `translated_str()` 读取路径参数的 syscall，统一迁移到可返回 errno 的安全读取 helper，减少“异常退出替代 errno”的风险。  
