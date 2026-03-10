@@ -88,6 +88,9 @@
   该轮提升了作业控制、tid 一致性与 nice/priority 路径的持续覆盖密度，满足“每轮新增 10-20 tests”节奏。
 - LTP 提效推进（单轮 ~50 tests）：在默认稳定链新增并入凭据/UTS/资源限制/告警子组：`GETRES_TASKS(6)`、`CRED_SET_TASKS(26)`、`UTS_NAME_TASKS(6)`、`UTS_QUERY_TASKS(2)`、`SETRLIMIT_TASKS(6)`、`GETRLIMIT_TASKS(3)`、`ALARM_TASKS(5)`，并追加 glibc 边界用例 `gethostname02`（总计 55 个用例名）。  
   本轮按“相关回归优先”仅针对该批次执行回归验证，musl+glibc 路径均为 `FAIL LTP CASE ... : 0`，用于在保证语义稳定的同时提高吞吐。
+- poll/epoll 语义治理：此前 `ppoll/pselect/epoll` 分散在 syscall 层各自计算 readiness，缺少统一的 Linux poll mask 语义，`epoll_pwait2(441)` 也未接入。  
+  已将 `poll_mask()/supports_poll()` 下沉到 `File` 抽象，补齐 pipe/socket/FIFO/pidfd/userfaultfd 的 `POLLHUP/POLLERR/POLLRDHUP` 可见性；`ppoll` 现在对 `sigmask` 正确忽略被屏蔽信号，`epoll` 接入 `epoll_pwait2` 并统一复用等待/信号掩码逻辑。  
+  结果：`epoll_ctl01-05`、`epoll_wait01-07`、`epoll_pwait01-05` 已在 musl+glibc 聚焦回归中稳定通过；当前剩余长期缺口不是接口语义，而是缺少通用 wait-queue / event registration，`epoll_wait` 无限等待路径仍依赖短睡眠轮询作为过渡实现。
 - 后续治理项：继续清点仍使用 `translated_str()` 读取路径参数的 syscall，统一迁移到可返回 errno 的安全读取 helper，减少“异常退出替代 errno”的风险。  
   fd-table 共享语义已覆盖 `close_range01` 主路径，下一步可继续把当前“owner+sharer 重绑定”模型演进为独立 files-struct 引用计数对象，进一步贴近 Linux 生命周期语义。
 
