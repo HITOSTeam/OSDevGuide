@@ -2,6 +2,29 @@
 
 本文总结了排查 LoongArch64 启动卡死（initproc 已入队但无用户输出）过程中所做的改动。目标是实现首次干净进入用户态并让 shell 正常工作。
 
+## LTP fork 测试核心修改（riscv64）
+
+针对 `fork01/03/04/05/07/08/09/10/13/14`（musl + glibc）这一组用例，核心改动如下：
+
+- 扩大内核堆到 256 MiB，缓解 `fork13` 长时循环中的堆压力与 OOM 风险。
+  - `os/src/config.rs`
+- 重构 PID 分配逻辑：使用 `active` 集合 + 递增轮转分配，减少短周期 PID 复用；并提供 `pid_max` 上限控制（默认 32768）。
+  - `os/src/task/id.rs`
+  - `os/src/task/mod.rs`
+  - `os/src/fs/procfs.rs`（初始化 `/proc/sys/kernel/pid_max`）
+- 将 fork 压测相关调试日志统一接入 debug 开关，默认关闭，避免刷屏影响定位：
+  - `DEBUG_TASK_LIFECYCLE`：控制 `[kstack-debug]`、`[task-drop]`
+  - `DEBUG_PID_MAP`：控制 `[pid-debug]`
+  - `os/src/debug_config.rs`
+  - `os/src/task/id.rs`
+  - `os/src/task/processor.rs`
+  - `os/src/task/manager.rs`
+- 提交脚本固定执行上述 fork 子集（musl + glibc），便于稳定回归。
+  - `user/src/bin/ltp_dependence/mod.rs`
+  - `user/src/bin/submit_script.rs`
+
+最近一次完整回归（2026-02-18）中，这组 fork 用例均以 `FAIL LTP CASE ... : 0` 结束；`fork14` 为预期 `TCONF`（内存映射条件不满足）且返回 0。
+
 ## 已定位的根因
 
 - 内核栈与 TRAMPOLINE 的虚拟地址重叠：TRAMPOLINE 位于 VA 顶端（Sv39 风格），与 LoongArch 的 PGDL/PGDH 分裂和用户低地址范围冲突。
@@ -259,3 +282,19 @@ Files:
   - `os/src/syscall/flow.rs`
 - futex 共享 key 修复：共享 futex 以 `(0,uaddr)` 作为 key 入队，避免 checkpoint futex 超时（`waitpid_common` 依赖）。
   - `os/src/syscall/futex.rs`
+
+## LTP（riscv64）waitid/proc/阻塞等待修复记录
+
+为解决 `waitid10`、`waitid11` 以及 waitid 相关阻塞语义问题，新增/修复了：
+
+- 实现 `waitid(2)`（riscv64 syscall 95）：支持 `P_ALL/P_PID/P_PGID`、`WEXITED/WSTOPPED/WCONTINUED/WNOHANG/WNOWAIT`，并按 Linux `siginfo_t` 语义填充 `si_pid/si_uid/si_status/si_code`。
+  - `os/src/syscall/process.rs`
+  - `os/src/syscall/mod.rs`
+- 增补 `/proc/sys/kernel/core_pattern` 伪文件，避免 `waitid10` 读取 core_pattern 时返回 `ENOENT`。
+  - `os/src/fs/procfs.rs`
+- 修复 `ppoll` 在 `nfds==0` 时的阻塞语义：
+  - 有 timeout：走 `nanosleep`；
+  - 有 sigmask：走 `rt_sigsuspend`；
+  - 两者都无：阻塞直到收到未屏蔽信号并返回 `EINTR`。
+  该行为用于兼容 musl `pause()` 的常见实现路径，避免子进程提前返回导致 `waitid11` 看到 `CLD_EXITED`。
+  - `os/src/syscall/misc.rs`
