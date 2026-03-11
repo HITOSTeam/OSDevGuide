@@ -1,7 +1,7 @@
 # LTP Test Suite — Classification Summary
 
 > Source: `ltp_all.md` (2822 entries total)
-> Last updated: 2026-03-10
+> Last updated: 2026-03-11
 
 This document categorises every entry in `ltp_all.md` into functional groups.
 The count in each section is approximate (some tests appear in multiple
@@ -243,7 +243,7 @@ current image because `libnuma` development support is absent).
 | SysV Shared Memory | shmctl[01-08], shmget[02-06], shmat[01-04], shmdt[01-02], shm_comm, shmem_2nstest, shmt[02-10], shmnstest ✅ (`shmat02-04`, `shmctl01-08`, `shmdt01-02`, `shmget02-06`, `shmt02-10`; long `shmat1` excluded) |
 | POSIX MQ           | mq*open01, mq_notify[01-03], mq_timedreceive01, mq_timedsend01, mq_unlink01, mqns*[01-04] ✅ (`mq_open01`, `mq_notify01-03`, `mq_timedreceive01`, `mq_timedsend01`, `mq_unlink01`, `mqns_01-04`) |
 | Futex              | futex_wait[01-05], futex_wait_bitset01, futex_wake[01-04], futex_cmp_requeue[01-02], futex_waitv[01-03] (✅ `futex_wait05`, `futex_wait_bitset01`, `futex_wake02`, `futex_cmp_requeue01`, `futex_cmp_requeue02`) |
-| eventfd            | eventfd[01-06], eventfd2\_[01-03] (✅ `eventfd01`, `eventfd02`, `eventfd03`, `eventfd2_01`)             |
+| eventfd            | eventfd[01-06], eventfd2\_[01-03] ✅ 2026-03-11 focused follow-up (`eventfd01-06`, `eventfd2_01-03`)     |
 | timerfd            | timerfd[01-02,04], timerfd_create01 ✅, timerfd_gettime01, timerfd_settime[01-02]                         |
 | signalfd           | (see Signals section)                                                                                     |
 
@@ -251,6 +251,11 @@ current image because `libnuma` development support is absent).
 `semctl01/02`, `semop01/02`, `semget01`, `shmat01`, `eventfd01-06`, `eventfd2_01-03`,
 `futex_wait01-05`, `futex_wait_bitset01`, `futex_wake01-04`, `futex_cmp_requeue01-02`,
 `futex_waitv01-03`, `timerfd04`).
+
+✅ 2026-03-11 eventfd epoll follow-up passed on riscv64: manual
+`eventfd_epoll_smoke` validated `EPOLLOUT -> EPOLLIN -> EPOLLOUT` readiness
+transitions under `epoll_wait`, and focused LTP reruns kept `eventfd01-06` and
+`eventfd2_01-03` passing on musl+glibc.
 
 ✅ 2026-03-01 SysV MSG/SEM subset passed (`msgctl12`, `msgget05`, `msgrcv05-08`,
 `msgsnd06`, `semctl09`, `semget02`).

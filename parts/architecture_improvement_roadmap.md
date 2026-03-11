@@ -95,7 +95,8 @@
   同日继续补齐了 `UnixSocketFile` stream 建链态的 waiter 注册，以及 `NetSocketFile` 在 `listen/accept/shutdown_read/connect` 等本地状态迁移上的主动唤醒；聚焦 `select/poll/epoll` 回归继续保持通过。
   同时新增了用户态 `nested_epoll_smoke` 手工回归，覆盖 `parent epoll -> child epoll -> pipe` 的基础嵌套链路，并确认读空后仍因 `EPOLLHUP` 保持 ready 的 Linux 语义；该 smoke 已在 riscv64 shell 镜像手工通过。
   2026-03-11 继续收口 `epoll_wait` 自身的 waiter 路径：无限等待现在会通过 `EpollFile::register_poll_waiter_internal()` 同时挂上 epoll 自身与子对象等待队列，覆盖空 epoll / `epoll_ctl` 变更唤醒场景；配套新增 `epoll_ctl_wakeup_smoke`，在 riscv64 shell 镜像上验证“先阻塞于空 epoll，再由另一进程 `EPOLL_CTL_ADD` 一个已 readable 的 pipe fd”能够正确唤醒返回。
-  同日还把 `MqDescriptor` 接入 `poll_mask()` / `register_poll_waiter()`，并在消息入队/出队时主动唤醒 poll waiters，为 POSIX MQ 后续 epoll 覆盖和 targeted regression 做好基础设施。
+  同日又把 `eventfd` 从 dummy fd 提升为真实计数对象：补齐计数器读写、阻塞/非阻塞等待、poll mask 与 poll waiter 唤醒链路，并新增 `eventfd_epoll_smoke` 验证 `EPOLLOUT -> EPOLLIN -> EPOLLOUT` 的 readiness 迁移；`eventfd01-06`、`eventfd2_01-03` 也在 musl+glibc 聚焦回归中继续保持通过。
+  `MqDescriptor` 当前也已暴露 `poll_mask()` / `register_poll_waiter()` 并在消息入队/出队时主动唤醒 poll waiters，为 POSIX MQ 后续 epoll 覆盖和 targeted regression 做好基础设施。
   当前剩余长期缺口是缺少覆盖全部 `File` 类型的通用 wait-queue / event registration，以及嵌套 `epoll` 更复杂 corner case 的系统化覆盖；在这些对象补齐前，`epoll_wait` 仍对 mixed-support 场景保留短睡眠轮询兜底。
 - readiness 回归收口：`select01-04`、`poll01-02`、`ppoll01`、`pselect01-03` + `_64`、`epoll_create01-02`、`epoll_create1_01-02`、`epoll-ltp` 已在 musl+glibc 聚焦回归中稳定通过。  
   其中 `__NR_select`、`__NR__newselect`、独立 `pselect6_time64`、`__NR_epoll_create` 在 riscv64 上属于架构级不存在接口，LTP 对这些变体给出 `TCONF`，与 Linux/riscv64 预期一致，不视为内核语义缺口。

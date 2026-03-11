@@ -22,7 +22,7 @@
 近期已经完成的一类代表性工作：
 
 - `poll/select/epoll` 基础语义已经稳定。
-- `epoll_wait` 已经从纯短睡眠 fallback，推进到 pipe、FIFO、socketpair、Unix socket、netlink、loopback net socket 的事件驱动唤醒。
+- `epoll_wait` 已经从纯短睡眠 fallback，推进到 pipe、FIFO、socketpair、Unix socket、netlink、loopback net socket、eventfd 的事件驱动唤醒。
 - `epoll_wait` 的空 epoll / `epoll_ctl` 自唤醒路径也已收口到同一套 waiter 机制，不再单独依赖 fallback 短睡眠。
 - `pidfd` 与 `userfaultfd` 已接入 waiter registration，并完成 riscv64 聚焦回归验证。
 - `UnixSocketFile` 的 stream 建链态与 `NetSocketFile` 的本地状态迁移也已补到同一套 waiter 路径里，减少 mixed-support fallback。
