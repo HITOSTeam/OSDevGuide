@@ -23,6 +23,10 @@
 
 - `poll/select/epoll` 基础语义已经稳定。
 - `epoll_wait` 已经从纯短睡眠 fallback，推进到 pipe、FIFO、socketpair、Unix socket、netlink、loopback net socket 的事件驱动唤醒。
+- `epoll_wait` 的空 epoll / `epoll_ctl` 自唤醒路径也已收口到同一套 waiter 机制，不再单独依赖 fallback 短睡眠。
+- `pidfd` 与 `userfaultfd` 已接入 waiter registration，并完成 riscv64 聚焦回归验证。
+- `UnixSocketFile` 的 stream 建链态与 `NetSocketFile` 的本地状态迁移也已补到同一套 waiter 路径里，减少 mixed-support fallback。
+- `MqDescriptor` 现已暴露 Linux 风格的 poll mask / waiter registration，为后续 POSIX MQ 的 epoll 覆盖打基础。
 - fd table / `CLONE_FILES` / `close_range` / `unshare` 等共享文件表语义已经开始向 Linux 靠拢。
 
 这说明项目下一步不该只是“继续加测试名”，而应继续把这些方向做深做实。
@@ -35,15 +39,16 @@
 
 优先项：
 
-- 为 `pidfd` 接入真实 waiter registration。
-- 为 `userfaultfd` 接入真实 waiter registration。
-- 评估并实现嵌套 `epoll` 的安全等待/唤醒路径。
+- 保留并扩展嵌套 `epoll` 回归覆盖；当前 `parent epoll -> child epoll -> pipe/HUP` 基础链路已通过手工 smoke，后续重点转向更复杂 corner case 与等待拓扑。
+- 继续把同一套 waiter 机制扩到其他仍未开放真实 epoll wait registration 的 `File` 类型。
 - 继续减少 mixed-support 场景下的短睡眠 fallback 覆盖面。
 
 完成标准：
 
 - `epoll_wait`/`epoll_pwait` 相关聚焦回归稳定通过。
+- 基础嵌套 `epoll` smoke 持续可复现通过，不因 pipe/HUP 或 waiter 改动退化。
 - 新接入对象的 wakeup 生命周期清晰，没有悬挂 waiter 或明显 race。
+- `pidfd_open[01-04]` 与 `userfaultfd01` 已在 riscv64 聚焦回归中完成复验；`pidfd_getfd*` / `pidfd_send_signal*` 的当前 `TCONF` 归因于 riscv64 缺少对应 syscall 号，而非 readiness 回归。
 
 ### Phase 2: 继续治理 fd / files 生命周期
 

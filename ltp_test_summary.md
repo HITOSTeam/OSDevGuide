@@ -1,7 +1,7 @@
 # LTP Test Suite — Classification Summary
 
 > Source: `ltp_all.md` (2822 entries total)
-> Last updated: 2026-03-09
+> Last updated: 2026-03-10
 
 This document categorises every entry in `ltp_all.md` into functional groups.
 The count in each section is approximate (some tests appear in multiple
@@ -24,6 +24,11 @@ Creation, execution and termination of processes.
 
 ✅ 2026-03-09 core100 process follow-up passed (`clone05-07`, `wait403`,
 `execve05-06`, `execveat03`).
+
+✅ 2026-03-10 pidfd readiness follow-up passed on riscv64 (`pidfd_open01-04`);
+`pidfd_getfd01-02` and `pidfd_send_signal01-03` remain arch-specific `TCONF`
+because riscv64 LTP lacks those syscall numbers, not because of kernel
+readiness regressions.
 
 ---
 
@@ -225,6 +230,8 @@ current image because `libnuma` development support is absent).
 ✅ 2026-03-08 special fs/mm follow-up passed on musl+glibc
 (`creat07`, `creat09`, `userfaultfd01`).
 
+✅ 2026-03-10 readiness follow-up revalidated `userfaultfd01` on musl+glibc.
+
 ---
 
 ## 8. IPC (~90)
@@ -324,6 +331,16 @@ long-running stress case).
 | IPsec                            | ipsec_lib.sh, tcp_ipsec*, udp_ipsec*, sctp_ipsec*, dccp_ipsec*                                                                                                                                                                                                                              |
 | VSOCK                            | vsock01                                                                                                                                                                                                                                                                                     |
 | Multicast                        | mcast-\_, mc\_\_                                                                                                                                                                                                                                                                            |
+
+✅ 2026-03-10 manual `nested_epoll_smoke` passed on riscv64 shell image
+(`parent epoll -> child epoll -> pipe/HUP` basic chain), so current nested
+epoll follow-up focus is broader corner-case coverage rather than a known
+basic readiness failure.
+
+✅ 2026-03-11 manual `epoll_ctl_wakeup_smoke` passed on riscv64 shell image
+(`epoll_wait` blocks on empty epoll, then another process `EPOLL_CTL_ADD`s an
+already-readable pipe fd), covering the epoll self-wakeup path for ctl-driven
+readiness changes.
 
 ---
 
