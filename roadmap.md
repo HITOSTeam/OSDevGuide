@@ -27,6 +27,7 @@
 - `pidfd` 与 `userfaultfd` 已接入 waiter registration，并完成 riscv64 聚焦回归验证。
 - `UnixSocketFile` 的 stream 建链态与 `NetSocketFile` 的本地状态迁移也已补到同一套 waiter 路径里，减少 mixed-support fallback。
 - `MqDescriptor` 现已暴露 Linux 风格的 poll mask / waiter registration，为后续 POSIX MQ 的 epoll 覆盖打基础。
+- `timerfd` 已从 dummy syscall 路径提升为真实 waitable file，并完成 musl+glibc 聚焦回归；同时调度器开始用上下文切换边界做细粒度 CPU runtime accounting，减少 FAIR/yield-heavy 工作负载只靠 tick 记账的偏差。
 - fd table / `CLONE_FILES` / `close_range` / `unshare` 等共享文件表语义已经开始向 Linux 靠拢。
 
 这说明项目下一步不该只是“继续加测试名”，而应继续把这些方向做深做实。

@@ -244,7 +244,7 @@ current image because `libnuma` development support is absent).
 | POSIX MQ           | mq*open01, mq_notify[01-03], mq_timedreceive01, mq_timedsend01, mq_unlink01, mqns*[01-04] ✅ (`mq_open01`, `mq_notify01-03`, `mq_timedreceive01`, `mq_timedsend01`, `mq_unlink01`, `mqns_01-04`) |
 | Futex              | futex_wait[01-05], futex_wait_bitset01, futex_wake[01-04], futex_cmp_requeue[01-02], futex_waitv[01-03] (✅ `futex_wait05`, `futex_wait_bitset01`, `futex_wake02`, `futex_cmp_requeue01`, `futex_cmp_requeue02`) |
 | eventfd            | eventfd[01-06], eventfd2\_[01-03] ✅ 2026-03-11 focused follow-up (`eventfd01-06`, `eventfd2_01-03`)     |
-| timerfd            | timerfd[01-02,04], timerfd_create01 ✅, timerfd_gettime01, timerfd_settime[01-02]                         |
+| timerfd            | timerfd[01-02], timerfd_create01, timerfd_gettime01, timerfd_settime[01-02] ✅ 2026-03-11 focused rerun (`timerfd01-02`, `timerfd_create01`, `timerfd_gettime01`, `timerfd_settime01-02`); `timerfd04` 当前因缺少 `CONFIG_TIME_NS` 得到内核配置级 `TCONF` |
 | signalfd           | (see Signals section)                                                                                     |
 
 ✅ NEXT100 IPC batch passed (`msgctl01/02`, `msgget01/02`, `msgrcv01`, `msgsnd01`,
@@ -256,6 +256,16 @@ current image because `libnuma` development support is absent).
 `eventfd_epoll_smoke` validated `EPOLLOUT -> EPOLLIN -> EPOLLOUT` readiness
 transitions under `epoll_wait`, and focused LTP reruns kept `eventfd01-06` and
 `eventfd2_01-03` passing on musl+glibc.
+
+✅ 2026-03-11 timerfd follow-up passed on riscv64: focused musl+glibc reruns
+confirmed `timerfd01-02`, `timerfd_create01`, `timerfd_gettime01`,
+`timerfd_settime01-02` continue to pass after moving timerfd to a real waitable
+file object. `timerfd04` is presently `TCONF` because `/proc/config.gz` does
+not advertise `CONFIG_TIME_NS=y`, so it is tracked as an environment/config gap
+rather than a timerfd syscall regression. `timerfd_settime02` itself is an LTP
+race-stress test with `.max_runtime = 150`, so on a healthy kernel it is still
+expected to run until the test framework requests exit and then report `TPASS`,
+not to terminate like a short functional case.
 
 ✅ 2026-03-01 SysV MSG/SEM subset passed (`msgctl12`, `msgget05`, `msgrcv05-08`,
 `msgsnd06`, `semctl09`, `semget02`).
