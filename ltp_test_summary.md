@@ -307,6 +307,12 @@ in the current batch. Without that bookkeeping, a sibling `child epoll` could
 stay stuck in a stale ready state and lose its next edge after transitioning
 through not-ready.
 
+✅ 2026-03-14 nested epoll parent one-shot follow-up passed on riscv64: manual
+`nested_epoll_parent_oneshot_smoke` validated that `EPOLLONESHOT` on the
+`parent epoll -> child epoll` link disables only the parent-side interest after
+the first wakeup, stays suppressed across a full child `not-ready -> ready`
+transition, and is re-enabled by `EPOLL_CTL_MOD` rearm.
+
 ✅ 2026-03-01 SysV MSG/SEM subset passed (`msgctl12`, `msgget05`, `msgrcv05-08`,
 `msgsnd06`, `semctl09`, `semget02`).
 
