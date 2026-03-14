@@ -293,6 +293,13 @@ chain immediately ready again.
 reaches the parent, the second write stays suppressed before rearm, and a
 subsequent `EPOLL_CTL_MOD` on the child interest restores one more wakeup.
 
+✅ 2026-03-14 nested epoll edge-triggered follow-up passed on riscv64: manual
+`nested_epoll_et_smoke` validated `EPOLLET` propagation through the
+`pipe -> child epoll -> parent epoll` chain across two distinct ready edges.
+The run also exposed and fixed a kernel bookkeeping bug: `epoll_wait` now
+refreshes edge-triggered `last_ready` snapshots even on empty returns, so a
+ready -> not-ready -> ready transition no longer loses the next edge.
+
 ✅ 2026-03-01 SysV MSG/SEM subset passed (`msgctl12`, `msgget05`, `msgrcv05-08`,
 `msgsnd06`, `semctl09`, `semget02`).
 

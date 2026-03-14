@@ -104,6 +104,7 @@
   同日继续沿着嵌套等待拓扑补覆盖：新增 `nested_epoll_ctl_wakeup_smoke`，在 riscv64 shell 镜像上验证“父 epoll 阻塞等待子 epoll，另一进程通过 `EPOLL_CTL_ADD` 把一个已 readable 的 pipe fd 动态加入子 epoll”能够跨层唤醒父 epoll 返回。这样 `nested_epoll_smoke` 的基础链路与 `epoll_ctl_wakeup_smoke` 的 ctl-driven 唤醒路径就被串到了同一条嵌套拓扑里。
   同时又补了 `nested_epoll_ctl_del_smoke`，覆盖删除路径的 ready 去抖：当 `pipe -> child epoll -> parent epoll` 链路已经处于可读状态时，若对子 epoll 执行 `EPOLL_CTL_DEL` 移除 pipe interest，父 epoll 不应继续保留陈旧 ready；重新 `EPOLL_CTL_ADD` 后，未消费的数据又应立即重新变成 ready。
   同时再补了 `nested_epoll_oneshot_smoke`，确认 `EPOLLONESHOT` 在 `pipe -> child epoll -> parent epoll` 链路上仍保持 Linux 风格的一次性触发语义：首次可读会穿透到父 epoll，第二次写入在未 rearm 前不会重复上报，只有对子 epoll 执行 `EPOLL_CTL_MOD` 重新 arm 后才再次把 ready 传播回父 epoll。
+  同日继续补上 `nested_epoll_et_smoke`，把 `EPOLLET` 也纳入 `pipe -> child epoll -> parent epoll` 拓扑覆盖：首次写入后父/子 epoll 都只上报一次，读空后 readiness 归零，第二次写入再触发新的 edge。这个 smoke 同时暴露出内核里一个 ET bookkeeping 缺口：过去 `epoll_wait` 只有在返回 ready events 时才刷新 `last_ready`，导致 ready -> not-ready -> ready 的下一条边可能丢失；现已改为即使本轮返回空事件也同步 apply updates，避免嵌套 ET 链路错过后续 edge。
   当前剩余长期缺口是缺少覆盖全部 `File` 类型的通用 wait-queue / event registration，以及嵌套 `epoll` 更复杂 corner case 的系统化覆盖；在这些对象补齐前，`epoll_wait` 仍对 mixed-support 场景保留短睡眠轮询兜底。
 - readiness 回归收口：`select01-04`、`poll01-02`、`ppoll01`、`pselect01-03` + `_64`、`epoll_create01-02`、`epoll_create1_01-02`、`epoll-ltp` 已在 musl+glibc 聚焦回归中稳定通过。  
   其中 `__NR_select`、`__NR__newselect`、独立 `pselect6_time64`、`__NR_epoll_create` 在 riscv64 上属于架构级不存在接口，LTP 对这些变体给出 `TCONF`，与 Linux/riscv64 预期一致，不视为内核语义缺口。
