@@ -275,6 +275,24 @@ semantics in the shell image. The run also exposed and fixed a userland
 `sigaction` wrapper bug: syscall 134 now uses `rt_sigaction` ABI with an
 explicit sigset size, matching the kernel-side interface used by Linux/riscv64.
 
+✅ 2026-03-14 nested epoll ctl-wakeup follow-up passed on riscv64: manual
+`nested_epoll_ctl_wakeup_smoke` validated the cross-layer wake path where a
+task blocks in `parent epoll_wait`, another process adds an already-readable
+pipe fd into `child epoll` via `EPOLL_CTL_ADD`, and readiness propagates back
+through the nested epoll topology without relying on timeout polling.
+
+✅ 2026-03-14 nested epoll ctl-del follow-up passed on riscv64: manual
+`nested_epoll_ctl_del_smoke` validated that removing a readable pipe interest
+from `child epoll` via `EPOLL_CTL_DEL` also clears stale readiness from the
+`parent epoll` view, and that re-adding the same unread source makes the nested
+chain immediately ready again.
+
+✅ 2026-03-14 nested epoll one-shot follow-up passed on riscv64: manual
+`nested_epoll_oneshot_smoke` validated `EPOLLONESHOT` propagation through the
+`pipe -> child epoll -> parent epoll` chain: the first readable transition
+reaches the parent, the second write stays suppressed before rearm, and a
+subsequent `EPOLL_CTL_MOD` on the child interest restores one more wakeup.
+
 ✅ 2026-03-01 SysV MSG/SEM subset passed (`msgctl12`, `msgget05`, `msgrcv05-08`,
 `msgsnd06`, `semctl09`, `semget02`).
 
