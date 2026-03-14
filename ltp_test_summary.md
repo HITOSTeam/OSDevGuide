@@ -1,7 +1,7 @@
 # LTP Test Suite — Classification Summary
 
 > Source: `ltp_all.md` (2822 entries total)
-> Last updated: 2026-03-11
+> Last updated: 2026-03-14
 
 This document categorises every entry in `ltp_all.md` into functional groups.
 The count in each section is approximate (some tests appear in multiple
@@ -266,6 +266,14 @@ rather than a timerfd syscall regression. `timerfd_settime02` itself is an LTP
 race-stress test with `.max_runtime = 150`, so on a healthy kernel it is still
 expected to run until the test framework requests exit and then report `TPASS`,
 not to terminate like a short functional case.
+
+✅ 2026-03-14 POSIX MQ readiness follow-up passed on riscv64: manual
+`mq_epoll_smoke`, `mq_unlink_epoll_smoke`, and `mq_notify_signal_smoke`
+validated `mqueue -> epoll` readiness delivery, `unlink`-after-open queue
+liveness, and `mq_notify(SIGEV_SIGNAL)` one-shot / `EBUSY` / unregister
+semantics in the shell image. The run also exposed and fixed a userland
+`sigaction` wrapper bug: syscall 134 now uses `rt_sigaction` ABI with an
+explicit sigset size, matching the kernel-side interface used by Linux/riscv64.
 
 ✅ 2026-03-01 SysV MSG/SEM subset passed (`msgctl12`, `msgget05`, `msgrcv05-08`,
 `msgsnd06`, `semctl09`, `semget02`).
