@@ -300,6 +300,13 @@ The run also exposed and fixed a kernel bookkeeping bug: `epoll_wait` now
 refreshes edge-triggered `last_ready` snapshots even on empty returns, so a
 ready -> not-ready -> ready transition no longer loses the next edge.
 
+✅ 2026-03-14 nested epoll edge-triggered maxevents follow-up passed on riscv64:
+manual `nested_epoll_et_maxevents_smoke` validated that `epoll_wait(maxevents=1)`
+still refreshes ET snapshots for later nested interests that were not returned
+in the current batch. Without that bookkeeping, a sibling `child epoll` could
+stay stuck in a stale ready state and lose its next edge after transitioning
+through not-ready.
+
 ✅ 2026-03-01 SysV MSG/SEM subset passed (`msgctl12`, `msgget05`, `msgrcv05-08`,
 `msgsnd06`, `semctl09`, `semget02`).
 
