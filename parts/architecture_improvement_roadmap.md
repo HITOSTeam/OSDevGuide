@@ -62,6 +62,8 @@
   已下沉到 `ProcessControlBlockInner::{ensure_fd_flags_len,is_fd_open,clear_fd}`，减少重复分支与维护点，保持行为不变并便于后续 `CLONE_FILES` 语义演进。
 - `open13`（`O_PATH`）语义偏差：`fchmod/fchown` 在 `O_PATH` fd 上曾错误成功，`fgetxattr` 缺失且返回 `ENOSYS`。  
   已补齐 fd 级别 `EBADF` 语义，并接入 `fgetxattr(10)` 分发；同时修复 musl 在 `fchmod/fchown` 遇到 `EBADF` 后经 `/proc/self/fd/N` 回退到 `fchmodat/fchownat` 的路径，避免误报 `ENOENT`。
+- proc magic-link follow-up：补齐 `/proc/<pid>/cwd/<child>`、`/proc/<pid>/fd/<dirfd>/<child>` 这类“中间组件是 proc magic-link”的路径解析语义；同时让 proc magic-link 上的 `openat(O_PATH|O_NOFOLLOW)` 返回真正的 symlink-fd，使 `readlinkat(fd, "")` 与 `newfstatat(fd, "", AT_EMPTY_PATH)` 观察到符号链接本身而非跟随后的目标。  
+  已用 `open13`、`readlink03`、`readlinkat01-02`、`commands/sysctl/sysctl02.sh` 及 repo-local `proc_magic_links_smoke` 完成聚焦验证。
 - 测试编排治理：将 open 子组按语义风险拆分（`OPEN_ADV=open13`、`OPEN_LARGEFILE=open12`、`OPEN_TMPFILE=open14`），默认回归只保留稳定子组；新增并验证 `ACCESS_TASKS` 与 `CLOSE_TASKS`，保持“通过率推进”与“语义正确性”并行。
 - `umask` 语义治理：此前 `umask` 使用全局原子变量，导致跨进程状态泄漏（非 Linux 语义），在长回归链中会放大权限类测试偶发风险。  
   已改为进程级状态（PCB `inner.umask`），并在 `fork` 继承、`exec` 保持；`current_umask/syscall_umask` 改为访问当前进程字段，文件创建路径通过 `apply_umask()` 自动获得正确语义。
