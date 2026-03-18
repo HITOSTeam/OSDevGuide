@@ -600,6 +600,21 @@ Run `python3 tools/find_unimplement_ltp.py` for an up-to-date breakdown.
 5. **Sections 14–19** — cgroups, security, advanced kernel features
 6. **Sections 20–22** — low priority (math tests, shell scripts, network stress)
 
+### Current Recommended Next Lane
+
+Current priority is not “pure optimization first”. The preferred lane is:
+
+1. `procfs / filesystem / files` semantic refactor
+2. LTP-driven follow-up batches around that refactor
+3. Scheduler/ext4 hotspot optimization after the semantic boundary is cleaner
+
+Recommended first batches:
+
+1. `proc01` + `sysctl01-04`
+2. proc/pseudo follow-up for `getdents` / `readdir` / `openat` / `readlinkat`
+3. `unshare01-02`, `close_range01-02`, `execve*` files-lifecycle follow-up
+4. `mountns01-04` plus a small bind-mount follow-up set
+
 ### How to mark progress
 
 When a group of tests is confirmed passing, add a ✅ to the table row in the

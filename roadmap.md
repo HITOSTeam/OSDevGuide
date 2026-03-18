@@ -34,6 +34,39 @@
 
 ## 近期路线图
 
+### 当前主线：`procfs / filesystem / files` 语义重构
+
+目标：用一条连续的语义重构线，同时降低后续 LTP 推进成本与系统结构债。
+
+判断：
+
+- 当前阶段不宜把重点放在“纯性能优化”或“继续零散补 syscall”。
+- 更优策略是 **LTP 驱动的小步重构**：让 `procfs`、`filesystem` 公共层、`files` 生命周期三者一起向 Linux 语义收口。
+- 纯优化（例如调度锁拆分、`ext4_lock()` 细化）仍然重要，但应放在这条语义主线之后，或与相关 LTP 子组绑定推进，而不是独立成为当前第一优先级。
+
+建议顺序：
+
+1. 先收 `procfs` 边界与语义源头。
+2. 再拆 `syscall/filesystem.rs` 的公共逻辑。
+3. 再推进 `files` 对象与 `CLONE_FILES` 生命周期。
+4. 最后结合对应回归，再做 ext4/调度热点优化。
+
+### Phase 0: 先收 `procfs` 边界
+
+目标：把 `/proc` 从 ext4 overlay 过渡实现继续推进到真实 pseudo-fs。
+
+优先项：
+
+- 让 `/proc/<pid>`、`/proc/self`、`/proc/<pid>/fd`、`/proc/<pid>/task` 的 lookup / readdir / open 优先走 pseudo 层，而不是依赖 ext4 上是否存在对应实体目录。
+- 让 `/proc/sys` 的值逐步回到内核变量 / handler，而不是把 ext4 文件内容当作状态源头。
+- 停止继续扩展“sync `/proc/<pid>` 到 ext4 目录实体”的过渡路径。
+
+完成标准：
+
+- `/proc` 与 `/proc/<pid>` 的基础遍历和打开不再依赖 ext4 目录同步。
+- `/proc/sys` 的新增/修改语义优先落在 typed kernel state，而不是 `OSInode` 文件内容。
+- `proc01`、`sysctl01-04`、一小组 `mountns/setns` follow-up 不退化。
+
 ### Phase 1: 收口等待与事件驱动框架
 
 目标：尽量让 `epoll_wait` 的无限等待路径摆脱 fallback 轮询。
@@ -60,6 +93,7 @@
 - 继续清理 `dup/dup3/fcntl/close/close_range/openat/pipe2` 中残留的 owner-specific 假设。
 - 降低“owner+sharer 重绑定”模型的脆弱性。
 - 逐步沉淀为更独立的 files 对象与引用计数语义。
+- 让 `fork` / `clone(CLONE_FILES)` / `exec` / `unshare` / `close_range(..., UNSHARE)` 的状态转移更明确。
 
 完成标准：
 
@@ -75,17 +109,36 @@
 - 继续从 `syscall/filesystem.rs` 下沉公共路径解析、errno 映射、权限判断逻辑。
 - 继续清理仍使用 `translated_str()` 直接杀进程的路径参数读取点。
 - 对高频对象抽公共 helper，而不是在 syscall 层重复分支。
+- 统一 pseudo/ext4/procfs 路径分流，不再让多个 syscall 各自维护一套分支规则。
 
 完成标准：
 
 - 新语义修复优先落在共享层，不再优先落在 syscall 分支内部。
 - 参数错误与地址错误更多按 Linux errno 返回，而不是异常退出。
 
+### 当前建议批次
+
+优先批次：
+
+1. `proc01` + `sysctl01-04`
+2. `getdents/readdir/openat/readlinkat` 的 proc/pseudo follow-up
+3. `unshare01-02`、`close_range01-02`、`execve/execveat` 的 files 生命周期 follow-up
+4. `mountns01-04` 与小组 bind mount follow-up
+
+不建议当前优先做的事项：
+
+- 不建议先独立做 `ext4_lock()` 大拆分。
+- 不建议先独立重写调度器。
+- 不建议一上来整体重写 `procfs.rs`。
+
+原因：这些动作跨度过大，容易打散当前稳定基线；更合适的方式是绑定到上面几轮语义批次里逐步推进。
+
 ## 中期路线图
 
 ### Procfs / pseudo-fs 分层
 
 - 把 `/proc` 继续从 ext4 实体耦合中剥离，向纯内存 pseudo-fs 方向推进。
+- 让 `/proc/sys` 的可读写项逐步切到 typed handler，而不是 ext4 文件内容即状态。
 - 明确真实文件系统、伪文件系统、进程视图文件系统的边界。
 
 ### 调度与锁模型优化

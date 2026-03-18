@@ -115,11 +115,32 @@
 
 ## 分阶段改进计划（建议）
 
+### 当前推荐主线：`procfs / filesystem / files`
+
+当前更适合的推进方式，不是“纯性能优化优先”，也不是“继续零散补 syscall”，而是：
+
+- 以 `procfs / filesystem / files` 为一条连续语义重构线推进。
+- 用 LTP 小批次回归来约束重构范围和完成标准。
+- 把调度器热点、`ext4_lock()` 细化这类纯优化放到这条主线之后，或绑定到相关语义批次里做。
+
+推荐顺序：
+
+1. 先收 `procfs` 边界和状态源头。
+2. 再拆 `syscall/filesystem.rs` 的公共层。
+3. 再推进 `files` 对象与生命周期语义。
+4. 最后再结合对应 LTP 子组推进 ext4 / 调度热点优化。
+
 ### 阶段 A（立即执行，低风险高收益）
 
 - 固化边界：新增文档和代码注释，明确 fs/procfs/调度/中断边界。
 - 抽公共逻辑：继续把 `syscall/filesystem.rs` 中可复用逻辑下沉（权限、errno 映射、路径解析）。
 - 约束调试开关：默认关闭噪声日志，保留按需开关，不引入常开 debug 输出。
+
+其中优先建议先落地 `procfs`：
+
+- `/proc/<pid>`、`/proc/self`、`/proc/<pid>/fd`、`/proc/<pid>/task` 的 lookup / readdir / open 优先走 pseudo 层，而不是依赖 ext4 实体目录同步。
+- `/proc/sys` 的值逐步回到 typed kernel state / handler，不再把 ext4 文件内容当状态源头。
+- 停止继续扩展“sync `/proc/<pid>` 到 ext4 目录”的过渡设计。
 
 ### 阶段 B（与 LTP 子组并行推进）
 
@@ -128,11 +149,29 @@
   - 降低全局锁覆盖范围；
   - 清理临时兼容逻辑并补回标准语义。
 
+推荐首批回归目标：
+
+- 第 1 轮：`proc01` + `sysctl01-04`
+- 第 2 轮：`getdents/readdir/openat/readlinkat` 的 proc/pseudo follow-up
+- 第 3 轮：`unshare01-02`、`close_range01-02`、`execve/execveat` 的 files 生命周期 follow-up
+- 第 4 轮：`mountns01-04` 与一小组 bind-mount follow-up
+
 ### 阶段 C（中期目标）
 
 - procfs/pseudo-fs 完整内存化和接口分层。
 - 调度器并发模型优化（减少全局锁热点）。
 - exec/动态链接语义修复，移除私有偏移补丁。
+
+当前不建议单独优先推进的事项：
+
+- 不建议先整体重写 `procfs.rs`。
+- 不建议先单独做 `ext4_lock()` 大拆分。
+- 不建议先单独重写调度器。
+
+原因：
+
+- 这些动作跨度过大，容易把当前稳定基线打散。
+- 更好的方式是让它们附着在 `procfs/filesystem/files` 语义批次上逐步推进，并由 focused LTP 回归提供约束。
 
 ## 执行检查清单（每轮）
 
