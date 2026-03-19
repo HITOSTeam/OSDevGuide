@@ -67,6 +67,14 @@
 - `/proc/sys` 的新增/修改语义优先落在 typed kernel state，而不是 `OSInode` 文件内容。
 - `proc01`、`sysctl01-04`、一小组 `mountns/setns` follow-up 不退化。
 
+当前状态：
+
+- `proc01` 已于 2026-03-19 在 musl+glibc 聚焦复验通过。
+- `sysctl01/03/04` 在 riscv64 上维持预期的架构级 `TCONF`（LTP 报告
+  `__NR__sysctl` 缺失），不属于 procfs `/proc/sys` 回归。
+- `commands/sysctl/sysctl01.sh` 与 `commands/sysctl/sysctl02.sh` 继续稳定覆盖
+  `/proc/sys` handler 路径，剩余 `TCONF` 来自配置/环境约束。
+
 ### Phase 1: 收口等待与事件驱动框架
 
 目标：尽量让 `epoll_wait` 的无限等待路径摆脱 fallback 轮询。
@@ -118,12 +126,10 @@
 
 ### 当前建议批次
 
-优先批次：
+优先批次（`proc01 + sysctl01-04`、`mountns01-04` 已于 2026-03-19 收尾）：
 
-1. `proc01` + `sysctl01-04`
-2. `getdents/readdir/openat/readlinkat` 的 proc/pseudo follow-up
-3. `unshare01-02`、`close_range01-02`、`execve/execveat` 的 files 生命周期 follow-up
-4. `mountns01-04` 与小组 bind mount follow-up
+1. 小组 bind mount follow-up
+2. 在 proc/files 语义边界稳定后再做调度器与 ext4 热点优化
 
 不建议当前优先做的事项：
 

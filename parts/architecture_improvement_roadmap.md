@@ -64,6 +64,12 @@
   已补齐 fd 级别 `EBADF` 语义，并接入 `fgetxattr(10)` 分发；同时修复 musl 在 `fchmod/fchown` 遇到 `EBADF` 后经 `/proc/self/fd/N` 回退到 `fchmodat/fchownat` 的路径，避免误报 `ENOENT`。
 - proc magic-link follow-up：补齐 `/proc/<pid>/cwd/<child>`、`/proc/<pid>/fd/<dirfd>/<child>` 这类“中间组件是 proc magic-link”的路径解析语义；同时让 proc magic-link 上的 `openat(O_PATH|O_NOFOLLOW)` 返回真正的 symlink-fd，使 `readlinkat(fd, "")` 与 `newfstatat(fd, "", AT_EMPTY_PATH)` 观察到符号链接本身而非跟随后的目标。  
   已用 `open13`、`readlink03`、`readlinkat01-02`、`commands/sysctl/sysctl02.sh` 及 repo-local `proc_magic_links_smoke` 完成聚焦验证。
+- `execveat01` 锁顺序死锁：旧的 `resolve_exec_inode_at()` 在 `AT_FDCWD` 相对路径分支里先持有 `ext4_lock()`，再调用会二次进入同一锁的 `resolve_at_path()`，导致 `execveat01` 第二子用例卡死。  
+  已调整为“先解析 `AtPath`，后在 inode 解析与最终权限检查阶段持锁”，并用 `close_range02`、`unshare01-02`、`vfork*`、`execve*`、`execveat*` 的 musl+glibc 聚焦回归验证。
+- proc/sysctl focused rerun：2026-03-19 在 riscv64 上完成 `proc01`、`sysctl01`、`sysctl03`、`sysctl04`、`commands/sysctl/sysctl01.sh`、`commands/sysctl/sysctl02.sh` 的 musl+glibc 聚焦复验。  
+  结果是 `proc01` 双 libc 通过，说明前面的 proc magic-link / files-lifecycle 收口没有把 `/proc` 遍历与读取路径带退化；`sysctl01/03/04` 继续是 riscv64 架构级 `TCONF`（LTP 直接报告缺少 `__NR__sysctl`）；shell 覆盖继续验证了 procfs `/proc/sys` typed-handler 路径，剩余 `TCONF` 归因于 `sched_time_avg` 与 `CONFIG_KALLSYMS*` / `CONFIG_KASAN` 配置缺口，而非新的内核语义问题。
+- mount namespace 收口：围绕 `mountns01-04` 先把 repo-local `mount_namespace_smoke` 扩成真实传播回归，覆盖 shared/private/slave/unbindable 以及叠挂后 `umount()` 弹出顶层恢复底层的语义；内核侧则继续沿“进程持有 `MountNamespace` 对象”的主线推进，给挂载记录补上 propagation 元数据、stack sequence / event id，并允许同一 target 的 bind mount 叠加与按顶层 `umount()` 弹出。  
+  同时修正了 `chroot()` 不再错误重置 `cwd` 的 Linux 语义偏差，并将 `/proc/config.gz` 的 namespace capability 广告补到足以让 LTP 真正执行 mountns 子组。最终 `mountns01-04` 已于 2026-03-19 在 riscv64 上完成 musl+glibc 聚焦通过，说明当前 shared/private/slave/unbindable 这条对象级建模已可支撑首批 mount namespace 语义。
 - 测试编排治理：将 open 子组按语义风险拆分（`OPEN_ADV=open13`、`OPEN_LARGEFILE=open12`、`OPEN_TMPFILE=open14`），默认回归只保留稳定子组；新增并验证 `ACCESS_TASKS` 与 `CLOSE_TASKS`，保持“通过率推进”与“语义正确性”并行。
 - `umask` 语义治理：此前 `umask` 使用全局原子变量，导致跨进程状态泄漏（非 Linux 语义），在长回归链中会放大权限类测试偶发风险。  
   已改为进程级状态（PCB `inner.umask`），并在 `fork` 继承、`exec` 保持；`current_umask/syscall_umask` 改为访问当前进程字段，文件创建路径通过 `apply_umask()` 自动获得正确语义。
@@ -151,12 +157,9 @@
   - 降低全局锁覆盖范围；
   - 清理临时兼容逻辑并补回标准语义。
 
-推荐首批回归目标：
+推荐下一轮回归目标（`proc01 + sysctl01-04`、`mountns01-04` 已于 2026-03-19 收尾）：
 
-- 第 1 轮：`proc01` + `sysctl01-04`
-- 第 2 轮：`getdents/readdir/openat/readlinkat` 的 proc/pseudo follow-up
-- 第 3 轮：`unshare01-02`、`close_range01-02`、`execve/execveat` 的 files 生命周期 follow-up
-- 第 4 轮：`mountns01-04` 与一小组 bind-mount follow-up
+- 第 1 轮：一小组 bind-mount follow-up
 
 ### 阶段 C（中期目标）
 

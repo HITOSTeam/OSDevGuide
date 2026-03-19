@@ -1,7 +1,7 @@
 # LTP Test Suite — Classification Summary
 
 > Source: `ltp_all.md` (2822 entries total)
-> Last updated: 2026-03-14
+> Last updated: 2026-03-19
 
 This document categorises every entry in `ltp_all.md` into functional groups.
 The count in each section is approximate (some tests appear in multiple
@@ -18,12 +18,17 @@ Creation, execution and termination of processes.
 | `fork`                    | fork[01-14]                                                                               |
 | `vfork`                   | vfork, vfork[01-02]                                                                       |
 | `clone`                   | clone[01-09], clone3[01-03]                                                               |
-| `exec*`                   | execl01, execle01, execlp01, execv01, execve[01-06], execveat[01-03] (✅ 01-02), execvp01 |
+| `exec*`                   | execl01, execle01, execlp01, execv01, execve[01-06], execveat[01-03] ✅ (`execveat03` env `TCONF`), execvp01 |
 | `exit`                    | exit[01-02], exit_group01                                                                 |
 | `wait / waitpid / waitid` | wait[01-02], wait4[01-03], waitpid[01-13], waitid[01-11]                                  |
 
 ✅ 2026-03-09 core100 process follow-up passed (`clone05-07`, `wait403`,
 `execve05-06`, `execveat03`).
+
+✅ 2026-03-19 files-lifecycle follow-up passed on musl+glibc
+(`close_range02`, `unshare01-02`, `vfork`, `vfork01-02`, `execl01`,
+`execle01`, `execv01`, `execve01-04`, `execveat01-02`; `execveat03`
+remains environment-driven `TCONF` on overlayfs coverage).
 
 ✅ 2026-03-10 pidfd readiness follow-up passed on riscv64 (`pidfd_open01-04`);
 `pidfd_getfd01-02` and `pidfd_send_signal01-03` remain arch-specific `TCONF`
@@ -414,7 +419,7 @@ readiness changes.
 | Extended Attributes | getxattr[01-05], setxattr[01-03], listxattr[01-03], removexattr[01-02], fgetxattr[01-03], fsetxattr[01-02], flistxattr[01-03], fremovexattr[01-02], lgetxattr[01-02], llistxattr[01-03], lremovexattr01, getxattr[01-05], acl1 |
 | Mount / umount      | mount[01-07], umount[01-03], umount2\_[01-02], mount_setattr01 ✅ 2026-03-06 phase2                                                                                                                                                |
 | New mount API       | fsconfig[01-03], fsmount[01-02], fsopen[01-02], fspick[01-02], open_tree[01-02], move_mount[01-02] ✅ 2026-03-06 phase2-3 (`fsconfig01-03`, `fsopen01-02`, `fsmount01-02`, `fspick01-02`, `open_tree01-02`, `move_mount01-02`) |
-| Mount namespaces    | mountns[01-04]                                                                                                                                                                                                                 |
+| Mount namespaces    | mountns[01-04] ✅ 2026-03-19 mountns batch (`mountns01-04` PASS on musl+glibc after mount propagation/object modeling and `/proc/config.gz` namespace gate update)                                                           |
 | Bind mounts         | fs_bind[01-24].sh, fs_bind_rbind[01-39].sh, fs_bind_move[01-22].sh, fs_bind_cloneNS[01-07].sh                                                                                                                                  |
 | Filesystem stress   | fsstress, fs*racer*\*.sh, growfiles, fsx-linux                                                                                                                                                                                 |
 | Filesystem tests    | fs_di, fs_fill, fs_inod, fs_perms, inode[01-02], ftest[01-08]                                                                                                                                                                  |
@@ -433,7 +438,7 @@ readiness changes.
 | -------------- | ----------------------------------------------------------------- |
 | User NS        | userns[01-08] ✅ 2026-03-08 phase3 (`userns01-08` PASS in harness; current env accepts libcap / CONFIG_USER_NS-related TCONF where applicable) |
 | PID NS         | pidns[01-06,10,12-13,16-17,20,30-32] ✅ 2026-03-08 phase4 (`pidns01-06,10,12-13,16-17,20,30-32` PASS in harness; current env accepts CONFIG_PID_NS TCONF where applicable) |
-| Mount NS       | mountns[01-04]                                                    |
+| Mount NS       | mountns[01-04] ✅ 2026-03-19 (`mountns01-04` PASS on musl+glibc) |
 | Network NS     | netns\_\* (6 tests)                                               |
 | Time NS        | timens01                                                          |
 | UTS NS (setns) | setns[01-02], unshare[01-02] ✅ (`setns01-02`, `unshare01-02`; UTS path TCONF) |
@@ -539,7 +544,7 @@ readiness changes.
 | `sysconf / confstr / pathconf` | confstr01, pathconf[01-02], fpathconf01 ✅ 2026-03-08 phase5 (`pathconf01`/`fpathconf01` dual-libc PASS; `pathconf02` glibc PASS, musl blocked; pending: `sysconf01`, `getpagesize01`) |
 | `getcpu`                       | getcpu01 ✅ 2026-03-08 phase4                                      |
 | `ptrace`                       | ptrace[01-11]                                                     |
-| `proc`                         | proc01                                                            |
+| `proc`                         | proc01 ✅ 2026-03-19 dual-libc focused rerun                      |
 | `reboot`                       | reboot[01-02]                                                     |
 | `sgetmask / ssetmask`          | sgetmask01, ssetmask01                                            |
 | `uaccess`                      | uaccess                                                           |
@@ -549,6 +554,14 @@ readiness changes.
 | `crash`                        | crash[01-02]                                                      |
 
 ---
+
+✅ 2026-03-19 proc/sysctl follow-up completed on musl+glibc:
+`proc01` passed on both libcs; `sysctl01`/`sysctl03`/`sysctl04` remain
+expected riscv64 arch `TCONF` because LTP reports `__NR__sysctl` absent on
+this arch; `commands/sysctl/sysctl01.sh` and `commands/sysctl/sysctl02.sh`
+kept procfs-backed `/proc/sys` coverage stable, with remaining skips tied to
+unsupported `sched_time_avg` and missing `CONFIG_KALLSYMS*` / `CONFIG_KASAN`,
+not new kernel regressions.
 
 ## 20. Math / Floating Point (~40)
 
@@ -608,12 +621,10 @@ Current priority is not “pure optimization first”. The preferred lane is:
 2. LTP-driven follow-up batches around that refactor
 3. Scheduler/ext4 hotspot optimization after the semantic boundary is cleaner
 
-Recommended first batches:
+Recommended next batches after the 2026-03-19 proc/sysctl + mountns reruns:
 
-1. `proc01` + `sysctl01-04`
-2. proc/pseudo follow-up for `getdents` / `readdir` / `openat` / `readlinkat`
-3. `unshare01-02`, `close_range01-02`, `execve*` files-lifecycle follow-up
-4. `mountns01-04` plus a small bind-mount follow-up set
+1. A small bind-mount follow-up set after `mountns01-04`
+2. Scheduler/ext4 hotspot optimization after the proc/files semantic boundary stays stable
 
 ### How to mark progress
 
@@ -631,7 +642,7 @@ snapshot stays accurate across sessions.
 
 | Section | Category                       | Status              |
 | ------- | ------------------------------ | ------------------- |
-| 1       | Process Lifecycle              | ✅ core subset + 2026-03-09 core100 process follow-up (`clone05-07`, `wait403`, `execve05-06`, `execveat03`) |
+| 1       | Process Lifecycle              | ✅ core subset + 2026-03-09 core100 process follow-up (`clone05-07`, `wait403`, `execve05-06`, `execveat03`) + 2026-03-19 files-lifecycle follow-up (`vfork`, `vfork01-02`, `execl01`, `execle01`, `execv01`, `execve01-04`, `execveat01-02`) |
 | 2       | Process Identity & Credentials | ✅ core subset + credential set/query extended batches + 2026-03-09 getgroups/setgroups follow-up |
 | 3       | Scheduling & Priority          | ✅ core subset + NEXT100 sched_tc + get/setpriority |
 | 4       | Signals                        | ✅ core subset + NEXT100 signal + 2026-03-09 core100 signal batch |
@@ -649,7 +660,7 @@ snapshot stays accurate across sessions.
 | 16      | CPU Hotplug & Topology         |                     |
 | 17      | Kernel Modules & Devices       | ◐ 2026-03-06 phase5 IOCTL core ✅ (`ioctl01-09`, `ioctl_loop01-07`, `ioctl_sg01`; 保留环境 TCONF) + 2026-03-08 0305 (`ioctl02` ✅ with `/dev/tty`) + 2026-03-08 phase4 modules ✅ (`init_module01-02`, `finit_module01-02`, `delete_module01-03`) + 2026-03-08 phase5 ioprio ✅ (`ioprio_get01`, `ioprio_set01-03`; `ioperm/iopl` riscv TCONF) |
 | 18      | Performance / perf_event       |                     |
-| 19      | Miscellaneous Kernel Features  | ◐ uts/getrandom subset ✅ + `prctl01-10` ✅ (2026-03-05 phase4) + 2026-03-08 phase4 (`getcpu01`, `membarrier01`) + 2026-03-08 phase5 (`sysinfo01-03`, `personality01-02`, `confstr01`, `pathconf01-02`, `fpathconf01`; `pathconf02` glibc PASS, musl blocked) |
+| 19      | Miscellaneous Kernel Features  | ◐ uts/getrandom subset ✅ + `prctl01-10` ✅ (2026-03-05 phase4) + 2026-03-08 phase4 (`getcpu01`, `membarrier01`) + 2026-03-08 phase5 (`sysinfo01-03`, `personality01-02`, `confstr01`, `pathconf01-02`, `fpathconf01`; `pathconf02` glibc PASS, musl blocked) + 2026-03-19 proc/sysctl follow-up (`proc01` PASS on musl+glibc; `sysctl01/03/04` riscv64 arch `TCONF`; `commands/sysctl/sysctl01-02.sh` stable with expected env/config `TCONF`) |
 | 20      | Math / Floating Point          |                     |
 | 21      | Shell-script / Admin Tests     |                     |
 | 22      | Stress / Benchmark             |                     |
