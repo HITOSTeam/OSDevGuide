@@ -126,9 +126,9 @@
 
 ### 当前建议批次
 
-优先批次（`proc01 + sysctl01-04`、`mountns01-04` 已于 2026-03-19 收尾）：
+优先批次（`proc01 + sysctl01-04`、`mountns01-04` 已于 2026-03-19 收尾，`fs_bind01-08` 已于 2026-03-20 收尾）：
 
-1. 小组 bind mount follow-up
+1. `fs_bind_rbind*` / `fs_bind_move*` propagation follow-up
 2. 在 proc/files 语义边界稳定后再做调度器与 ext4 热点优化
 
 不建议当前优先做的事项：

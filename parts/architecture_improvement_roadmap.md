@@ -70,6 +70,9 @@
   结果是 `proc01` 双 libc 通过，说明前面的 proc magic-link / files-lifecycle 收口没有把 `/proc` 遍历与读取路径带退化；`sysctl01/03/04` 继续是 riscv64 架构级 `TCONF`（LTP 直接报告缺少 `__NR__sysctl`）；shell 覆盖继续验证了 procfs `/proc/sys` typed-handler 路径，剩余 `TCONF` 归因于 `sched_time_avg` 与 `CONFIG_KALLSYMS*` / `CONFIG_KASAN` 配置缺口，而非新的内核语义问题。
 - mount namespace 收口：围绕 `mountns01-04` 先把 repo-local `mount_namespace_smoke` 扩成真实传播回归，覆盖 shared/private/slave/unbindable 以及叠挂后 `umount()` 弹出顶层恢复底层的语义；内核侧则继续沿“进程持有 `MountNamespace` 对象”的主线推进，给挂载记录补上 propagation 元数据、stack sequence / event id，并允许同一 target 的 bind mount 叠加与按顶层 `umount()` 弹出。  
   同时修正了 `chroot()` 不再错误重置 `cwd` 的 Linux 语义偏差，并将 `/proc/config.gz` 的 namespace capability 广告补到足以让 LTP 真正执行 mountns 子组。最终 `mountns01-04` 已于 2026-03-19 在 riscv64 上完成 musl+glibc 聚焦通过，说明当前 shared/private/slave/unbindable 这条对象级建模已可支撑首批 mount namespace 语义。
+- bind propagation follow-up：围绕 `fs_bind01-08` 继续把“挂载可见性”从平面记录推进到 live namespace tree fanout。  
+  内核侧修正了三类关键问题：一是目标目录校验改为先经过 `translate_mount_abs()` 再查真实后端，避免 bind/stacked mount 场景把 live mount view 与 ext4 根路径混淆；二是 propagation fanout 不再只看“完全同 target 的记录”，而是按覆盖 mount 查找源节点并向所有 shared peer / slave 从属目的地派发 event，bind mount 也复用同一套对象级传播；三是 `umount()` 不再只删当前 namespace 某一个 target，而是按 mount event id 跨 namespace 移除同一传播事件生成的整组挂载。  
+  用户态配套新增 `umount_once`，并在 `extra/bin/umount` 中固定顺序逐层卸载、在 `extra/bin/rm` 中固定走 busybox cleanup，确保 stacked bind teardown 按“每次弹出顶层一层”的 Linux 语义运行，同时避免 LTP 清理阶段落到当前环境下不稳定的 coreutils 行为。最后 `fs_bind01-08` 已于 2026-03-20 在 riscv64 上完成 musl+glibc 聚焦通过，其中 `fs_bind03` 的 shared child -> slave parent 语义缺口也已收口：新 bind clone 继续保留 shared peer 行为，只对 slave 链路保留单向传播。
 - 测试编排治理：将 open 子组按语义风险拆分（`OPEN_ADV=open13`、`OPEN_LARGEFILE=open12`、`OPEN_TMPFILE=open14`），默认回归只保留稳定子组；新增并验证 `ACCESS_TASKS` 与 `CLOSE_TASKS`，保持“通过率推进”与“语义正确性”并行。
 - `umask` 语义治理：此前 `umask` 使用全局原子变量，导致跨进程状态泄漏（非 Linux 语义），在长回归链中会放大权限类测试偶发风险。  
   已改为进程级状态（PCB `inner.umask`），并在 `fork` 继承、`exec` 保持；`current_umask/syscall_umask` 改为访问当前进程字段，文件创建路径通过 `apply_umask()` 自动获得正确语义。
@@ -157,9 +160,9 @@
   - 降低全局锁覆盖范围；
   - 清理临时兼容逻辑并补回标准语义。
 
-推荐下一轮回归目标（`proc01 + sysctl01-04`、`mountns01-04` 已于 2026-03-19 收尾）：
+推荐下一轮回归目标（`proc01 + sysctl01-04`、`mountns01-04` 已于 2026-03-19 收尾，`fs_bind01-08` 已于 2026-03-20 收尾）：
 
-- 第 1 轮：一小组 bind-mount follow-up
+- 第 1 轮：`fs_bind_rbind*` / `fs_bind_move*` propagation follow-up
 
 ### 阶段 C（中期目标）
 
