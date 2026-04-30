@@ -171,13 +171,13 @@
 - 不要因为某个实现“已经让测试通过”就停止改进。
 - 做完一轮后，更新：
   - `OSGuide/ltp_test_summary.md`
-  - `OSGuide/parts/architecture_improvement_roadmap.md`
+  - `OSGuide/parts/code_structure_audit.md`
   - 本文档（如果阶段判断或优先级发生变化）
 
 ## 每轮工作建议
 
 1. 先读 `OSGuide/ltp_test_summary.md`。
-2. 再读 `OSGuide/parts/architecture_improvement_roadmap.md`。
+2. 再读 `OSGuide/parts/code_structure_audit.md`。
 3. 最后看本文，确认当前阶段最值得推进的方向。
 4. 选择 5 到 20 个同类测试，优先能推动一个底层语义簇的批次。
 5. 修复后必须做 focused 回归，并同步更新文档。

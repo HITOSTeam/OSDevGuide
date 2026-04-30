@@ -124,7 +124,7 @@ api/src/syscall/
 
 ## 四、相关文件
 
-- `OSGuide/parts/architecture_improvement_roadmap.md` — 现有架构风险清单
-- `OSGuide/roadmap.md` — 当前阶段目标
+- `OSGuide/roadmap.md` — 当前阶段目标与架构风险优先级
+- `OSGuide/ltp_test_summary.md` — LTP 推进状态与回归基线
 - `exampleOs/starry-mix/` — 最佳参考实现
 - `exampleOs/arceos/` — 模块化设计参考
